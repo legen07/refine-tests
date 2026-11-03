@@ -24,8 +24,11 @@ inserting plugin rows; Host plugins exporting `apply(ctx, config)` with
 (name, version, description, entrypoint, author, license, triggers,
 default_mode, permissions, network, destructive) — it is a stable,
 human-readable contract — and *additionally* ship a real, installable Cordis
-Host bundle in `dsh-host-plugin/` that registers the CLI as the
-`refine_tests` tool.
+Host bundle: the repo-root `package.json` is the bundle package (`dsh.bundle.patch`
+→ `dsh-host-plugin/cordis.patch.yml`, exports delegating to
+`dsh-host-plugin/index.js`), so `dsh plugin --profile <p> add
+file:/…/refine-tests` installs it; the row's `name` equals the dependency key
+because that is the specifier the Loader imports.
 
 **Conservative fallback:** audit mode by default; destructive actions
 (quarantine) require `--cleanup --yes`; the wrapper tool shells out to the

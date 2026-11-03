@@ -51,7 +51,13 @@ check('parameters is a JSON schema object',
   typeof tool.parameters === 'object' && tool.parameters.type === 'object');
 check('parameters declares mode enum',
   JSON.stringify(tool.parameters.properties?.mode?.enum) === JSON.stringify(
-    ['audit', 'plan', 'apply', 'approve', 'restore']));
+    ['audit', 'plan', 'apply', 'approve', 'restore', 'bootstrap']));
+// argv mapping is the contract; actually provisioning needs the network,
+// so a fresh checkout without .venv may legitimately fail here (offline).
+const boot = await tool.execute({ mode: 'bootstrap' }, {});
+check('bootstrap maps to the CLI subcommand',
+  JSON.stringify(boot.argv) === '["bootstrap"]',
+  boot.stdout || boot.stderr)
 check('output.schema is an object schema',
   tool.output?.schema?.type === 'object');
 check('output.render is a function', typeof tool.output?.render === 'function');

@@ -31,7 +31,8 @@ git clone <this repo> refine-tests && cd refine-tests
 ./refine-tests --help            # uses .venv if present, else python3
 ```
 
-For the per-test coverage mechanism, create the plugin venv once:
+For the per-test coverage mechanism, create the plugin venv once
+(equivalent to `refine-tests bootstrap`):
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install pytest pytest-cov
@@ -103,8 +104,34 @@ classification matrix the acceptance runner verifies — including the two
   make (A1–A13), with the conservative fallback chosen instead.
 - **config.toml** — every knob (toolchain, coverage, CI, mutation budgets,
   the §7 calibration table, gating thresholds, tiers, feature flags).
-- **dsh-host-plugin/** — the real DSH (Cordis) Host bundle that registers
-  this CLI as the `refine_tests` tool (see ASSUMPTIONS A1).
+- **dsh-host-plugin/** — the real DSH (Cordis) Host half that registers
+  this CLI as the `refine_tests` tool; the repo-root `package.json` is the
+  installable bundle package (see ASSUMPTIONS A1).
+
+## Install as a DSH plugin (Cordis bundle)
+
+```bash
+dsh plugin --profile <profile> add file:/home/joe/Dev/refine-tests
+# or, manually in the profile directory:
+#   pnpm add refine-tests file:/home/joe/Dev/refine-tests
+```
+
+The row carries no config — the CLI's own `config.toml` /
+`.refine-tests.toml` stay the single source of truth. To uninstall:
+`dsh plugin --profile <profile> remove refine-tests`.
+
+**One-time bootstrap (only for installed copies):** the plugin's `.venv/`
+(per-test coverage: pytest + pytest-cov + coverage) is gitignored and never
+ships inside an installed copy, so run this once per install — it is the only
+step that needs the network:
+
+```bash
+refine-tests bootstrap
+# or through the tool:  refine_tests with mode=bootstrap
+```
+
+Without it the plugin still works — audits degrade honestly to
+no-coverage mode (coverage-dependent detectors cap at LOW, §2).
 
 ## License
 

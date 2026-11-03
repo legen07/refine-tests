@@ -29,13 +29,15 @@ fully-evidenced cleanup plan — without deleting anything you did not approve:
 
 ```
 refine-tests/
+├── package.json             # the DSH/Cordis bundle package (dsh.bundle.patch)
 ├── plugin.toml              # manifest (spec §3 schema; see ASSUMPTIONS A1)
 ├── SKILL.md                 # this file
 ├── README.md                # install + quickstart
 ├── ASSUMPTIONS.md           # §0: every assumption, labeled A1–A13
 ├── config.toml              # toolchain, coverage, CI, mutation, gating, tiers
 ├── refine-tests             # zero-install POSIX launcher
-├── dsh-host-plugin/         # real DSH/Cordis Host bundle (tools.refine_tests)
+├── dsh-host-plugin/         # Cordis Host half: index.js + cordis.patch.yml
+│                            #   (tools.refine_tests; see package.json at the root)
 ├── quarantine/              # created on first cleanup (§8 protocol)
 ├── proposed/                # created on first cleanup (§6 proposals)
 └── src/
@@ -66,6 +68,7 @@ refine-tests/
 | Cleanup (apply)                   | `refine-tests --cleanup --yes`           | quarantine/ + proposed/ | 0   |
 | Approve permanent removal (§8)    | `refine-tests approve <qt-id>`           | quarantine evidence   | 0     |
 | Reverse a quarantine (§8)         | `refine-tests restore <qt-id>`           | test file + archive   | 0     |
+| Bootstrap plugin venv (one-time)  | `refine-tests bootstrap`                 | `.venv/` (network)    | 0     |
 
 Scope defaults to **smoke + core** tiers (pass `--all-tiers` to include
 `extended`). `--offline` makes zero network calls (local `.ci-history/`

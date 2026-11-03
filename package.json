@@ -1,0 +1,23 @@
+{
+  "name": "refine-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Forensic audit + curation of a project's test suite (DSH/Cordis Host bundle).",
+  "exports": {
+    ".": "./dsh-host-plugin/index.js",
+    "./locale/*.json": "./dsh-host-plugin/locale/*.json",
+    "./icon": "./dsh-host-plugin/icon.svg"
+  },
+  "files": [
+    "dsh-host-plugin/index.js",
+    "dsh-host-plugin/cordis.patch.yml",
+    "dsh-host-plugin/locale/*.json",
+    "dsh-host-plugin/icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./dsh-host-plugin/cordis.patch.yml"
+    }
+  }
+}

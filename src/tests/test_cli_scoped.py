@@ -5,6 +5,7 @@ throwaway copy of the fixture suite, exactly like the acceptance runner.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -142,3 +143,29 @@ def test_smoke_tier_veto_survives_scoping(tmp_path: Path, mode: str):
     # The smoke tier is a hard veto: removals become keep (flagged).
     assert all(t["action"] == "keep" for t in tests.values())
     assert any(t.get("vetoed") for t in tests.values())
+
+
+def test_bootstrap_subcommand_is_idempotent_when_the_venv_exists():
+    # The source checkout's .venv is the zero-install contract (§2): with it
+    # present, bootstrap must be a no-op probe that needs no network.
+    proc = _run("bootstrap")
+    assert proc.returncode == 0, proc.stderr
+    assert "nothing to do" in proc.stdout
+
+
+def test_bootstrap_reports_a_bad_interpreter_cleanly(tmp_path: Path):
+    # The failure path only runs when no usable venv exists, so exercise it
+    # from a copy of the plugin tree that has none. A bogus interpreter fails
+    # at venv *creation*, before any network use.
+    tree = tmp_path / "plugin"
+    shutil.copytree(ROOT / "src", tree / "src",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    proc = subprocess.run(
+        [sys.executable, "-m", "src.cli", "bootstrap",
+         "--python", "/nonexistent-python"],
+        cwd=str(tree), capture_output=True, text=True, timeout=300,
+        env={**os.environ, "PYTHONPATH": str(tree)})
+    assert proc.returncode == 1
+    assert "venv creation failed" in proc.stderr
+    assert "Traceback" not in proc.stderr
+    assert not (tree / ".venv").exists()

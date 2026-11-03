@@ -88,7 +88,16 @@ def build_subcommand_parser(command: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=f"refine-tests {command}",
         description={"approve": "Human sign-off for permanent removal (§8).",
-                     "restore": "Reverse a quarantine (§8)."}[command])
+                     "restore": "Reverse a quarantine (§8).",
+                     "bootstrap": "Provision the plugin's own .venv with "
+                                  "pytest + pytest-cov + coverage (one-time, "
+                                  "needs network; makes per-test coverage "
+                                  "available to audits run by an installed "
+                                  "copy)."}[command])
+    if command == "bootstrap":
+        parser.add_argument("--python", default="python3",
+                            help="interpreter for the venv (default: python3)")
+        return parser
     parser.add_argument("qid", help="quarantine id (qt-…)")
     parser.add_argument("target", nargs="?", default=None,
                         help="project root (default: current directory)")
@@ -99,10 +108,13 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     # Dispatch subcommands explicitly so the audit/cleanup positional target
     # is never mistaken for a subcommand name.
-    if argv and argv[0] in {"approve", "restore"}:
+    if argv and argv[0] in {"approve", "restore", "bootstrap"}:
         sub_args = build_subcommand_parser(argv[0]).parse_args(argv[1:])
-        return _run_approve(sub_args) if argv[0] == "approve" \
-            else _run_restore(sub_args)
+        if argv[0] == "approve":
+            return _run_approve(sub_args)
+        if argv[0] == "restore":
+            return _run_restore(sub_args)
+        return _run_bootstrap(sub_args)
 
     parser = build_parser()
     args_ns = parser.parse_args(argv)
@@ -165,6 +177,59 @@ def main(argv: list[str] | None = None) -> int:
     _print_cleanup_summary(result, md, js)
     return 0
 
+
+def _run_bootstrap(args_ns: argparse.Namespace) -> int:
+    """Provision <plugin root>/.venv so audits get per-test coverage (§2).
+
+    Installed copies (e.g. a profile's node_modules) ship no virtualenv: the
+    venv is gitignored, and packing it would be platform-specific megabytes.
+    Bootstrap is explicit and one-time; every probe below stays honest about
+    what it found (§0).
+    """
+    import subprocess as _sp
+    import sys as _sys
+    from .config_paths import plugin_root as _root
+
+    venv = _root() / ".venv"
+    py = venv / "bin" / "python"
+    if py.exists():
+        probe = _sp.run([str(py), "-c", "import pytest, coverage, pytest_cov"],
+                        capture_output=True, text=True, check=False)
+        if probe.returncode == 0:
+            print(f"refine-tests bootstrap: nothing to do, {py} already has "
+                  "pytest + pytest-cov + coverage.")
+            return 0
+    print(f"refine-tests bootstrap: creating {venv} ...")
+    try:
+        proc = _sp.run([args_ns.python, "-m", "venv", str(venv)],
+                       capture_output=True, text=True, check=False)
+    except OSError as exc:
+        print(f"refine-tests bootstrap: venv creation failed: {exc}",
+              file=_sys.stderr)
+        return 1
+    if proc.returncode != 0:
+        print(f"refine-tests bootstrap: venv creation failed:\n"
+              f"{(proc.stderr or '').strip()}", file=_sys.stderr)
+        return 1
+    print("refine-tests bootstrap: installing pytest + pytest-cov + "
+          "coverage (network) ...")
+    proc = _sp.run([str(py), "-m", "pip", "install", "-q", "--upgrade",
+                    "pytest", "pytest-cov", "coverage"],
+                   capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        print(f"refine-tests bootstrap: pip install failed:\n"
+              f"{(proc.stderr or '').strip()}", file=_sys.stderr)
+        return 1
+    probe = _sp.run([str(py), "-c", "import pytest, coverage, pytest_cov"],
+                    capture_output=True, text=True, check=False)
+    if probe.returncode != 0:
+        print("refine-tests bootstrap: installed, but the import probe "
+              "failed — audits will degrade to no-coverage mode (§2).",
+              file=_sys.stderr)
+        return 1
+    print(f"refine-tests bootstrap: done. Audits now use {py} "
+          "(per-test coverage available).")
+    return 0
 
 def _run_approve(args_ns: argparse.Namespace) -> int:
     target = Path(args_ns.target or Path.cwd()).resolve()

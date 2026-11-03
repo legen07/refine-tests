@@ -19,7 +19,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 // The Python plugin tree (CLI launcher + src/) is the parent directory.
 const pluginRoot = resolve(here, '..');
 
-const MODES = ['audit', 'plan', 'apply', 'approve', 'restore'];
+const MODES = ['audit', 'plan', 'apply', 'approve', 'restore',
+                 'bootstrap'];
 
 const parameters = {
   type: 'object',
@@ -32,7 +33,10 @@ const parameters = {
         'audit = read-only report (default, exit 0). plan = --cleanup ' +
         '--dry-run preview (no writes). apply = --cleanup --yes quarantine ' +
         '(writes quarantine/ + proposed/ only; needs yes). approve = sign ' +
-        'off one quarantined removal. restore = reverse one quarantine.'
+        'off one quarantined removal. restore = reverse one quarantine. '
+        + 'bootstrap = one-time provisioning of the plugin .venv '
+        + '(pytest + pytest-cov + coverage) so audits run by an '
+        + 'installed copy get per-test coverage; needs network.'
     },
     target: {
       type: 'string',
@@ -107,6 +111,10 @@ function buildArgv(args) {
     mode, target, quarantine_id, scope_path, diff,
     offline, all_tiers, yes, extra_args
   } = args;
+
+  if (mode === 'bootstrap') {
+    return { argv: ['bootstrap'] };
+  }
 
   if (mode === 'approve' || mode === 'restore') {
     if (!quarantine_id || !/^qt-[0-9a-f]+$/.test(quarantine_id)) {
