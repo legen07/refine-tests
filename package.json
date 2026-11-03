@@ -10,6 +10,12 @@
     "./icon": "./dsh-host-plugin/icon.svg"
   },
   "files": [
+    "refine-tests",
+    "src/",
+    "config.toml",
+    "plugin.toml",
+    "ASSUMPTIONS.md",
+    "SKILL.md",
     "dsh-host-plugin/index.js",
     "dsh-host-plugin/cordis.patch.yml",
     "dsh-host-plugin/locale/*.json",
