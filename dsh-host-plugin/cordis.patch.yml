@@ -1,0 +1,9 @@
+# The Loader patch: one Host plugin row owning the `refine_tests` tool.
+#
+# `id` is the plugin row id; `name` resolves this workspace package. The row
+# carries no config — the CLI's own config.toml / .refine-tests.toml remain
+# the single source of truth (see ASSUMPTIONS A1).
+- insert:
+    - id: refine-tests
+      name: '@local/refine-tests-host'
+      config: {}

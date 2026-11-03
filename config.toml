@@ -1,0 +1,109 @@
+# refine-tests — runtime configuration (§2)
+#
+# This is the plugin's own default configuration. Values can be overridden for
+# a specific audit target by placing a `.refine-tests.toml` with the same keys
+# at the target project root, or per-invocation with CLI flags.
+
+[toolchain]
+# Languages/frameworks engaged for v1. A language participates only when its
+# Detector implementation is registered in src/detectors/registry.py (§11).
+languages = ["python", "javascript", "typescript"]
+
+[coverage]
+# Per-test coverage mechanism (§2). Python: pytest --cov-context=test.
+# If the mechanism is unavailable, coverage-dependent detectors (redundant,
+# low-value, sole-coverage veto) refuse findings above LOW confidence and the
+# report header records the degradation.
+python_runner   = "auto"            # auto | <path to python> ; "auto" = .venv then sys.executable then PATH
+cov_branch      = true
+timeout_seconds = 600
+
+[ci]
+# CI history mining (§5.1/§5.2). provider: auto | local | github | gitlab | none
+provider      = "auto"
+local_dirname = ".ci-history"
+# Reading CI history is the ONLY network use in audit mode (§9). It is skipped
+# entirely with --offline or when provider = "none".
+github_remote_allowlist = ["api.github.com"]
+gitlab_remote_allowlist = ["gitlab.com"]
+
+[mutation]
+# Mutation-style verification of "cannot fail" claims (§5, §15 P4). Behind a
+# feature flag: off by default, enable with --mutation or [features] mutation = true.
+enabled            = false
+max_wall_clock_min = 30             # §2 budget
+max_mutants        = 5              # §2: max_mutants_per_test, sampled uniformly
+per_mutant_timeout = 30
+# Hard cap (§13): refuse mutation testing on repos with more than this many tests.
+max_tests_cap      = 50000
+
+[gating]
+# Minimum co-signal thresholds (§7).
+cosignal_min_confidence = 0.5       # what counts as "a detector agrees"
+remove_requires         = 2         # detectors agreeing on a removal signal
+remove_single_conf      = 0.9       # ...or one detector at this confidence
+refine_conf             = 0.7
+strengthen_conf         = 0.6
+
+[calibration]
+# The calibration table from §7, expressed as signal -> delta confidence.
+# Extend freely; engine validates that every used signal is known here.
+"ci_never_failing_20plus_runs"   = 0.4
+"mutation_score_zero"            = 0.4
+"coverage_subset_of_other"       = 0.3
+"assertion_is_constant"          = 0.5
+"only_mocks_exercised"           = 0.3
+"symbol_referenced_missing"      = 0.6
+"ast_similarity_ge_0_9"          = 0.2
+"sole_coverage_of_public_symbol" = -0.5   # veto (§7)
+"tier_is_smoke"                  = -0.3   # veto (§7)
+
+[vetoes]
+sole_coverage = true                # test is the only coverage of a public symbol
+smoke_tier    = true                # test is in tier "smoke"
+
+[tiers]
+# Tiering heuristics (§4 BASE: risk-based tiering smoke | core | extended).
+smoke_markers = ["smoke"]           # pytest.mark.<marker> or filename substring
+core_if_covers_public_symbol = true
+
+[features]
+# Delivery phases (§15). P0+P1 ship enabled; P2 are additive, proposal-only
+# writes to proposed/ and are enabled by default; P3/P4 stay opt-in.
+refine     = true     # P2: Refine action (proposed/<id>.refine.patch)
+strengthen = true     # P2: Strengthen action (proposed/<id>.strengthen.patch)
+replace    = false    # P3: Replace proposals (also needs --allow-replace-proposals)
+mutation   = false    # P4: mutation probe
+
+[reports]
+# Written to the audit target root unless --report-dir moves them. File names
+# and schema version are pinned constants, documented here as the stable
+# contract (not read from this file):
+#   refine-tests-report.md / .json  (src/engine.py REPORT_BASE)
+#   schema_version "1.0.0"          (src/report/json_emitter.py)
+write_markdown = true
+write_json     = true
+# §14 criterion 6: audit reports must be byte-identical across runs, so no
+# wall-clock timestamp is ever embedded in an audit report (A9).
+include_timestamp = false
+
+[quarantine]
+root = "quarantine"                 # relative to the audit target root
+
+# ---------------------------------------------------------------------------
+# Detector base-confidence overrides (§7)
+# ---------------------------------------------------------------------------
+# Every detector ships a built-in base confidence (see src/detectors/*.py).
+# Override a base here to retune a detector without touching code; signal
+# deltas from [calibration] still apply on top. Names are the detector
+# module names in src/detectors/.
+# Example: raise the zombie detector's base from 0.5 to 0.6
+# [detector_confidence]
+# zombie = 0.6
+# flaky = 0.35
+
+[assumptions]
+# ASSUMPTIONS.md is the §0 source of truth (labels A1–A13, parsed from its
+# `## A#` headers) and is mirrored into every report so reviewers never need
+# the repo to audit our reasoning. Pinned: edit the document, not this key.
+document = "ASSUMPTIONS.md"

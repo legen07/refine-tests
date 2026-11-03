@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "refine-tests"
+version = "0.1.0"
+description = "Forensic audit + curation of a project's test suite."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "petrkindlmann" }]
+keywords = ["testing", "test-suite", "audit", "forensics", "curation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7", "pytest-cov>=4"]
+
+[project.scripts]
+refine-tests = "src.cli:main"
+rt = "src.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.setuptools.package-data]
+"src" = ["tests/fixtures/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+norecursedirs = ["fixtures", ".venv", "node_modules"]
+python_files = ["test_*.py"]

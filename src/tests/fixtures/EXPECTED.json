@@ -1,0 +1,452 @@
+{
+  "tests/test_brittle.py::test_brittle_call_order": {
+    "action": "refine",
+    "findings": {
+      "brittle": 0.9,
+      "never-failing": 0.7
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_brittle.py::test_brittle_log_string": {
+    "action": "refine",
+    "findings": {
+      "brittle": 0.9,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_brittle.py::test_brittle_snapshot": {
+    "action": "refine",
+    "findings": {
+      "brittle": 0.9,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_calc_duplicates.py::test_add_pair_alpha": {
+    "action": "remove",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7,
+      "redundant": 0.65
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_calc_duplicates.py::test_add_pair_beta": {
+    "action": "remove",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7,
+      "redundant": 0.65
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_existence_only.py::test_existence_calc_add": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "never-failing": 0.7
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_existence_only.py::test_existence_report": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_existence_only.py::test_existence_truthy_report": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_flaky.py::test_flaky_race": {
+    "action": "refine",
+    "findings": {
+      "flaky": 0.83
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_flaky.py::test_flaky_retry": {
+    "action": "refine",
+    "findings": {
+      "flaky": 0.83
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_flaky.py::test_flaky_timeouts": {
+    "action": "refine",
+    "findings": {
+      "flaky": 0.83
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_good_organic.py::test_add_negatives": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_good_organic.py::test_add_parametrized": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_good_organic.py::test_add_two_numbers": {
+    "action": "keep",
+    "findings": {},
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_good_organic.py::test_divide_by_zero_raises": {
+    "action": "keep",
+    "findings": {},
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_good_organic.py::test_price_order_discount": {
+    "action": "keep",
+    "findings": {},
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_good_organic.py::test_price_order_no_discount": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_good_organic.py::test_subtract_works": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_impl_detail.py::test_impl_module_constant": {
+    "action": "keep",
+    "findings": {
+      "implementation-detail": 0.6,
+      "never-failing": 0.7
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_impl_detail.py::test_impl_object_identity": {
+    "action": "keep",
+    "findings": {
+      "implementation-detail": 0.6,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_impl_detail.py::test_impl_private_method": {
+    "action": "keep",
+    "findings": {
+      "implementation-detail": 0.6,
+      "never-failing": 0.7
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_lowvalue.py::test_price_full": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_lowvalue.py::test_price_smoke_only": {
+    "action": "remove",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_mockheavy.py::test_mock_heavy_collab": {
+    "action": "strengthen",
+    "findings": {
+      "brittle": 0.65,
+      "mock-heavy": 0.7,
+      "never-failing": 0.7
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_mockheavy.py::test_mockonly_pricer": {
+    "action": "strengthen",
+    "findings": {
+      "mock-heavy": 0.7,
+      "never-failing": 0.7
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_never_failing.py::test_neverfailing_lookup_smoke": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "low-value": 0.75,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_never_failing.py::test_neverfailing_pricing_picks": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "low-value": 0.75,
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_pricing_duplicates.py::test_price_pair_delta": {
+    "action": "remove",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7,
+      "redundant": 0.65
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_pricing_duplicates.py::test_price_pair_gamma": {
+    "action": "remove",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7,
+      "redundant": 0.65
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_smoke_vetoes.py::test_smoke_lowvalue_dup": {
+    "action": "keep",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7
+    },
+    "tier": "smoke",
+    "vetoed": true,
+    "vetoes": [
+      "tier_is_smoke"
+    ]
+  },
+  "tests/test_smoke_vetoes.py::test_smoke_pair_full": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_sole_coverage.py::test_report_dup_with_footprint": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7,
+      "redundant": 0.65
+    },
+    "tier": "core",
+    "vetoed": true,
+    "vetoes": [
+      "sole_coverage_of_public_symbol"
+    ]
+  },
+  "tests/test_sole_coverage.py::test_report_summarize_full": {
+    "action": "remove",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7,
+      "redundant": 0.65
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_tautological.py::test_taut_constant_expr": {
+    "action": "strengthen",
+    "findings": {
+      "never-failing": 0.7,
+      "tautological": 0.85
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_tautological.py::test_taut_mock_configured": {
+    "action": "strengthen",
+    "findings": {
+      "mock-heavy": 0.7,
+      "never-failing": 0.7,
+      "tautological": 0.65
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_tautological.py::test_taut_self_assign": {
+    "action": "strengthen",
+    "findings": {
+      "never-failing": 0.7,
+      "tautological": 0.85
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_tautological.py::test_taut_true": {
+    "action": "strengthen",
+    "findings": {
+      "never-failing": 0.7,
+      "tautological": 0.85
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_typecheck_only.py::test_typecheck_annotation": {
+    "action": "strengthen",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7,
+      "redundant": 0.65,
+      "typecheck-only": 0.6
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_typecheck_only.py::test_typecheck_divide_returns": {
+    "action": "strengthen",
+    "findings": {
+      "never-failing": 0.7,
+      "typecheck-only": 0.6
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_typecheck_only.py::test_typecheck_only_add": {
+    "action": "strengthen",
+    "findings": {
+      "low-value": 0.75,
+      "never-failing": 0.7,
+      "redundant": 0.65,
+      "typecheck-only": 0.6
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_zombie.py::test_warehouse_lookup_still_works": {
+    "action": "keep",
+    "findings": {
+      "never-failing": 0.7
+    },
+    "tier": "core",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_zombie.py::test_zombie_getattr_ghost": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "never-failing": 0.7,
+      "zombie": 1.0
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_zombie.py::test_zombie_missing_class": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "zombie": 1.0
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_zombie.py::test_zombie_removed_helper": {
+    "action": "strengthen",
+    "findings": {
+      "existence-only": 0.6,
+      "zombie": 1.0
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  },
+  "tests/test_zombie.py::test_zombie_with_impl_detail": {
+    "action": "keep",
+    "findings": {
+      "implementation-detail": 0.6,
+      "never-failing": 0.7,
+      "zombie": 1.0
+    },
+    "tier": "extended",
+    "vetoed": false,
+    "vetoes": []
+  }
+}

@@ -1,0 +1,32 @@
+# DSH plugin manifest — refine-tests
+#
+# NOTE ON SCHEMA (see ASSUMPTIONS.md A1 for the full reasoning):
+# The deployed DeepSeek Harness plugin system (v0.2.1-rc.5, the `dsh` on PATH
+# for this build) registers plugins as Cordis bundles: an npm `package.json`
+# declaring `dsh.bundle.patch` plus a `cordis.patch.yml` that inserts plugin
+# rows. No native `plugin.toml` schema exists in that system.
+#
+# This manifest therefore follows the schema specified in the plugin contract
+# (§3), which is the authoritative source for this deliverable, and is the
+# schema the plugin's own loader (`src/plugin_loader.py`) consumes. A
+# production-ready Cordis bundle wrapper that registers the same capability
+# inside the real DSH Host is shipped side-by-side in `dsh-host-plugin/`.
+
+[plugin]
+name        = "refine-tests"
+version     = "0.1.0"
+description = "Forensic audit + curation of a project's test suite."
+entrypoint  = "src.cli:main"
+author      = "petrkindlmann"
+license     = "MIT"
+
+[triggers]
+commands     = ["refine-tests", "rt"]
+events       = []                 # no auto-run on save; audit must be explicit
+default_mode = "audit"            # MUST be audit; cleanup is opt-in (§9)
+
+[permissions]
+read         = ["**/*"]
+write        = ["quarantine/**", "proposed/**", "refine-tests-report.*", "ASSUMPTIONS.md"]
+network      = ["api.github.com", "gitlab.com"]   # audit mode: none unless CI mining is enabled
+destructive  = "quarantine-then-approve"          # §8: never delete; quarantine + human sign-off
