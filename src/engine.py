@@ -232,13 +232,35 @@ def analyze(target: Path, cfg: dict, args: AuditArgs) -> AuditResult:
 
     # --- per-test coverage mechanism ------------------------------------------
     raw_coverage: dict[str, CoverageSet] = {}
-    cov_note = "not run (no python detector)"
+    langs = sorted(detectors)
+    if "python" in detectors:
+        cov_note = ""
+    elif "javascript" in langs or "typescript" in langs:
+        cov_note = ("not run (JS/TS: per-test coverage requires a pre-built "
+                    "c8/coverage JSON — set [coverage] jsts_coverage_json; "
+                    "coverage-dependent detectors stay LOW-capped)")
+    else:
+        cov_note = "not run (no supported test files found)"
     coverage_available = False
     if "python" in detectors:
         raw_coverage, coverage_available, cov_note = coverage_runner.run(
             target, cfg)
         if coverage_available:
             run["toolchain"]["pytest_python"] = coverage_runner.resolve_python(cfg)
+    # A user-supplied JS/TS coverage document beats the (absent) python run.
+    jsts_cov = (cfg.get("coverage", {}) or {}).get("jsts_coverage_json")
+    if jsts_cov and ("javascript" in langs or "typescript" in langs):
+        cov_path = Path(jsts_cov)
+        if not cov_path.is_absolute():     # target-relative, like quarantine/
+            cov_path = Path(target) / cov_path
+        jsts_raw, ok, jsts_note = detectors["javascript"].load_coverage(
+            cov_path)
+        if ok:
+            raw_coverage.update(jsts_raw)
+            coverage_available = True
+            cov_note = jsts_note
+        elif "python" not in detectors:
+            cov_note = jsts_note
     run["toolchain"]["coverage_available"] = coverage_available
     run["toolchain"]["coverage_note"] = cov_note
     result.coverage_available = coverage_available

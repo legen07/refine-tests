@@ -1,0 +1,318 @@
+{
+  "assumptions": [
+    "A1 — `plugin.toml` is not a native DSH manifest (schema by spec §3)",
+    "A2 — \"never-failing\" reads as *zero failures* over ≥20 runs (§7)",
+    "A3 — JS/TS support is structural-only (per-test coverage needs an adapter)",
+    "A4 — \"the typechecker already enforces it\" is an AST-level approximation",
+    "A5 — branch contexts are unavailable per test (coverage.py limitation)",
+    "A6 — Replace gate: \"two detectors agree\" (§7) read as two *findings*",
+    "A7 — `--yes` reconciles §8 (explicit per-action approval) with §14.4",
+    "A8 — mutation sampling determinism (§14.6) uses a content-derived seed",
+    "A9 — reports omit timestamps entirely (determinism over freshness)",
+    "A10 — refine/strengthen proposals are ON by default; replace and mutation OFF",
+    "A11 — mock setup calls are excluded from the mock-fraction denominator",
+    "A12 — approval permanently removes the stub (line numbers in that file shift)",
+    "A13 — local CI history is a first-class provider (offline by default)"
+  ],
+  "proposals": [],
+  "quarantine": [],
+  "run": {
+    "assumptions_ref": "ASSUMPTIONS.md",
+    "ci": {
+      "details": "no .ci-history/*.json found under the target root",
+      "runs": 0,
+      "source": "local",
+      "used_network": false
+    },
+    "features": {
+      "mutation": false,
+      "refine": true,
+      "replace": false,
+      "strengthen": true
+    },
+    "mode": "audit",
+    "mutation": {
+      "note": "disabled (feature flag off, §15 P4)"
+    },
+    "scope": {
+      "spec": null,
+      "tiers": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "type": "full"
+    },
+    "target": "/home/joe/.dsh/profiles/web/node_modules/refine-tests/src/tests/fixtures-jsts",
+    "toolchain": {
+      "coverage_available": false,
+      "coverage_note": "not run (JS/TS: per-test coverage requires a pre-built c8/coverage JSON — set [coverage] jsts_coverage_json; coverage-dependent detectors stay LOW-capped)",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "schema_note": "languages detected by file presence (§11 registry)"
+    }
+  },
+  "schema_version": "1.0.0",
+  "summary": {
+    "by_action": {
+      "keep": 6,
+      "strengthen": 2
+    },
+    "by_category": {
+      "brittle": 1,
+      "existence-only": 1,
+      "mock-heavy": 1,
+      "redundant": 2,
+      "zombie": 1
+    },
+    "by_tier": {
+      "extended": 8
+    },
+    "proposals": 0,
+    "quarantined": 0,
+    "total_tests": 8
+  },
+  "tests": [
+    {
+      "action": "strengthen",
+      "co_signals": 1,
+      "confidence": 0.6,
+      "evidence_line": "existence-only (0.60): Only existence/truthiness assertions present: `expect(add).toBeDefined()`.",
+      "file": "tests/calc.test.js",
+      "findings": [
+        {
+          "category": "existence-only",
+          "confidence": 0.6,
+          "detector": "existence_only",
+          "evidence": [
+            "Only existence/truthiness assertions present: `expect(add).toBeDefined()`.",
+            "Passes as long as the code under test returns any object; no observable behavior is verified."
+          ],
+          "recommended_action": "strengthen",
+          "signals": [],
+          "test_id": "tests/calc.test.js::calc::add is defined",
+          "tier": "extended"
+        }
+      ],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/calc.test.js::calc::add is defined",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    },
+    {
+      "action": "keep",
+      "co_signals": 0,
+      "confidence": 0.3,
+      "evidence_line": "redundant (0.30): Near-duplicate of tests/calc.test.js::calc::adds numbers beta: AST similarity 1.00; assertions are a subset modulo rename.",
+      "file": "tests/calc.test.js",
+      "findings": [
+        {
+          "category": "redundant",
+          "confidence": 0.3,
+          "detector": "redundant",
+          "evidence": [
+            "Near-duplicate of tests/calc.test.js::calc::adds numbers beta: AST similarity 1.00; assertions are a subset modulo rename."
+          ],
+          "recommended_action": "remove",
+          "signals": [],
+          "test_id": "tests/calc.test.js::calc::adds numbers alpha",
+          "tier": "extended"
+        }
+      ],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/calc.test.js::calc::adds numbers alpha",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    },
+    {
+      "action": "keep",
+      "co_signals": 0,
+      "confidence": 0.3,
+      "evidence_line": "redundant (0.30): Near-duplicate of tests/calc.test.js::calc::adds numbers alpha: AST similarity 1.00; assertions are a subset modulo rename.",
+      "file": "tests/calc.test.js",
+      "findings": [
+        {
+          "category": "redundant",
+          "confidence": 0.3,
+          "detector": "redundant",
+          "evidence": [
+            "Near-duplicate of tests/calc.test.js::calc::adds numbers alpha: AST similarity 1.00; assertions are a subset modulo rename."
+          ],
+          "recommended_action": "remove",
+          "signals": [],
+          "test_id": "tests/calc.test.js::calc::adds numbers beta",
+          "tier": "extended"
+        }
+      ],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/calc.test.js::calc::adds numbers beta",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    },
+    {
+      "action": "keep",
+      "co_signals": 0,
+      "confidence": 0.0,
+      "evidence_line": "no detector fired",
+      "file": "tests/calc.test.js",
+      "findings": [],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/calc.test.js::calc::divides two numbers",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    },
+    {
+      "action": "keep",
+      "co_signals": 1,
+      "confidence": 1.0,
+      "evidence_line": "zombie (1.00): References production symbol(s) absent from the symbol table: `src/calc.legacyTotal`.",
+      "file": "tests/calc.test.js",
+      "findings": [
+        {
+          "category": "zombie",
+          "confidence": 1.0,
+          "detector": "zombie",
+          "evidence": [
+            "References production symbol(s) absent from the symbol table: `src/calc.legacyTotal`.",
+            "The production API moved; this test cannot fail for the reason its author intended (it errors at import/use)."
+          ],
+          "recommended_action": "replace",
+          "signals": [
+            "symbol_referenced_missing"
+          ],
+          "test_id": "tests/calc.test.js::calc::legacy total still used",
+          "tier": "extended"
+        }
+      ],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/calc.test.js::calc::legacy total still used",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    },
+    {
+      "action": "keep",
+      "co_signals": 1,
+      "confidence": 0.65,
+      "evidence_line": "brittle (0.65): Asserts serialized internal state / large inline literal (1 snapshot-like assertion(s); counted once per test — §5 note).",
+      "file": "tests/calc.test.js",
+      "findings": [
+        {
+          "category": "brittle",
+          "confidence": 0.65,
+          "detector": "brittle",
+          "evidence": [
+            "Asserts serialized internal state / large inline literal (1 snapshot-like assertion(s); counted once per test — §5 note)."
+          ],
+          "recommended_action": "refine",
+          "signals": [],
+          "test_id": "tests/calc.test.js::calc::sums to snapshot",
+          "tier": "extended"
+        }
+      ],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/calc.test.js::calc::sums to snapshot",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    },
+    {
+      "action": "keep",
+      "co_signals": 0,
+      "confidence": 0.0,
+      "evidence_line": "no detector fired",
+      "file": "tests/mocked.test.js",
+      "findings": [],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/mocked.test.js::mocked::divide by zero throws",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    },
+    {
+      "action": "strengthen",
+      "co_signals": 1,
+      "confidence": 0.7,
+      "evidence_line": "mock-heavy (0.70): 1 of 1 exercised calls resolve to mocks (bindings: add).",
+      "file": "tests/mocked.test.js",
+      "findings": [
+        {
+          "category": "mock-heavy",
+          "confidence": 0.7,
+          "detector": "mock_heavy",
+          "evidence": [
+            "1 of 1 exercised calls resolve to mocks (bindings: add).",
+            "Every exercised call resolves to a mock — the test verifies the mocks, not the system."
+          ],
+          "recommended_action": "strengthen",
+          "signals": [
+            "only_mocks_exercised"
+          ],
+          "test_id": "tests/mocked.test.js::mocked::mock only",
+          "tier": "extended"
+        }
+      ],
+      "mutation": null,
+      "proposal_path": "",
+      "quarantine_id": "",
+      "test_id": "tests/mocked.test.js::mocked::mock only",
+      "tier": "extended",
+      "vetoed": false,
+      "vetoes": [],
+      "what_would_this_catch": ""
+    }
+  ],
+  "what_would_this_catch": [
+    {
+      "bug": "Guards **the code under test**: if a future change regressed the code under test, the test would no longer hold the claim \"toBeDefined\".",
+      "test_id": "tests/calc.test.js::calc::add is defined"
+    },
+    {
+      "bug": "Guards **add**: if a future change regressed add, the test would no longer hold the claim \"toBe\".",
+      "test_id": "tests/calc.test.js::calc::adds numbers alpha"
+    },
+    {
+      "bug": "Guards **add**: if a future change regressed add, the test would no longer hold the claim \"toBe\".",
+      "test_id": "tests/calc.test.js::calc::adds numbers beta"
+    },
+    {
+      "bug": "Guards **legacyTotal**: if a future change regressed legacyTotal, the test would no longer hold the claim \"toBe\".",
+      "test_id": "tests/calc.test.js::calc::legacy total still used"
+    },
+    {
+      "bug": "Guards **add**: if a future change regressed add, the test would no longer hold the claim \"toMatchSnapshot\".",
+      "test_id": "tests/calc.test.js::calc::sums to snapshot"
+    },
+    {
+      "bug": "Guards **add**: if a future change regressed add, the test would no longer hold the claim \"toBe\".",
+      "test_id": "tests/mocked.test.js::mocked::mock only"
+    }
+  ]
+}

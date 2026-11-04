@@ -39,8 +39,30 @@ def symbols_by_line(table: SymbolTable) -> dict[tuple[str, int], str]:
 
 
 def module_of_file(file: str) -> str:
+    if not file:
+        return ""                # malformed coverage entry: callers skip
     p = Path(file)
     return ".".join(p.with_suffix("").parts)
+
+
+def _owner_of(owners: dict[tuple[str, int], str], entry: str
+              ) -> tuple[str, str] | None:
+    """Resolve a ``file:lineno`` coverage entry to ``(module, owner)``.
+
+    Coverage documents are user-supplied (the JS/TS one is built by a
+    project script); a malformed key must never crash the audit — it is
+    skipped, and the audit reports the coverage it could attribute.
+    """
+    file, _, lineno = entry.rpartition(":")
+    if not file or not lineno.lstrip("-").isdigit():
+        return None
+    module = module_of_file(file)
+    if not module:
+        return None
+    owner = owners.get((module, int(lineno)))
+    if owner is None:
+        return None
+    return module, owner
 
 
 def assign_tiers(
@@ -58,11 +80,10 @@ def assign_tiers(
         cov = coverage.get(node.coverage_key or node.id) or CoverageSet()
         public: set[str] = set()
         for entry in sorted(cov.lines):
-            file, _, lineno = entry.rpartition(":")
-            module = module_of_file(file)
-            owner = owners.get((module, int(lineno)))
-            if owner is None:
+            resolved = _owner_of(owners, entry)
+            if resolved is None:
                 continue
+            module, owner = resolved
             head = owner.split(".")[0]
             info = table.modules.get(module, {}).get(head)
             if info is not None and info.is_public:
@@ -91,11 +112,10 @@ def symbol_coverage(
     for node in tests:
         cov = coverage.get(node.coverage_key or node.id) or CoverageSet()
         for entry in cov.lines:
-            file, _, lineno = entry.rpartition(":")
-            module = module_of_file(file)
-            owner = owners.get((module, int(lineno)))
-            if owner is None:
+            resolved = _owner_of(owners, entry)
+            if resolved is None:
                 continue
+            module, owner = resolved
             head = owner.split(".")[0]
             info = table.modules.get(module, {}).get(head)
             if info is not None and info.is_public:

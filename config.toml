@@ -18,10 +18,15 @@ python_runner   = "auto"            # auto | <path to python> ; an explicit inte
 #                                   # wins (use the audited project's own venv when its
 #                                   # tests need its dependencies); "auto" = plugin .venv,
 #                                   # then the running interpreter, then PATH
-jsts_coverage_json = ""             # path to a pre-built c8/coverage JSON with
-#                                   # per-test contexts (JS/TS). Empty = structural
+jsts_coverage_json = ""             # path (target-relative) to a JSON document
+#                                   # of per-test coverage you build in CI:
+#                                   #   {"results": {
+#                                   #     "<test node id>": {"s": {"file:line": hits}},
+#                                   #   }}
+#                                   # node ids match the report (file::describe::title);
+#                                   # files are target-relative. Empty = structural
 #                                   # analysis only: coverage-dependent detectors
-#                                   # stay LOW-capped and no JS/TS removal gates
+#                                   # stay LOW-capped
 cov_branch      = true
 timeout_seconds = 600
 

@@ -21,21 +21,25 @@ from src.detectors.jsts import (  # noqa: E402
 def test_find_blocks_handles_arrow_callbacks():
     src = 'it("t1", () => { expect(1).toBe(1); });\n' \
           'it("t2", (a, b) => { f(a); });\n' \
-          'it("t3", function () { g(); });\n'
+          'it("t3", function () { g(); });\n' \
+          'test("t4", () => expect(1).toBe(1));\n' \
+          'test.each([1, 2])("t5", (n) => { f(n); });\n'
     blocks = _find_blocks(src, IT_RE)
-    assert [b[0] for b in blocks] == ["t1", "t2", "t3"]
+    assert [b[0] for b in blocks] == ["t1", "t2", "t3", "t4", "t5"]
 
 
 def test_find_blocks_survives_string_literals_in_body():
     src = ('it("with strings", () => {\n'
            '  expect(() => f("a } b")).toThrow("boom }");\n'
            '});\n')
-    title, start, end = _find_blocks(src, IT_RE)[0]
+    title, header, start, end = _find_blocks(src, IT_RE)[0]
     assert title == "with strings"
     # The span covers exactly the callback body, not the title clause.
-    assert src[start] == "{"
+    assert src[start - 1] == "{"
     assert src[end] == "}"
     assert "toThrow" in src[start:end]
+    # The line number anchors on the `it(...)` header, not the body start.
+    assert src.count("\n", 0, header) == 0
 
 
 def test_expect_regions_nested_target_and_chain_span():
@@ -86,3 +90,78 @@ def test_exercised_calls_exclude_macros_and_matchers():
     calls = _exercised_calls(body, {"add": "vi.fn"})
     assert len(calls) == 1
     assert calls[0].callee == "add" and calls[0].on_mock is True
+
+
+def test_strip_comments_preserves_length_and_strings():
+    from src.detectors.jsts import _strip_comments
+    src = ('const a = 1; // the { map below\n'
+           'const re = /\\{.*\\}/;\n'
+           'toMatch(/^https?:\\/\\//);\n'
+           '/* block } */ b = 2;\n'
+           'const x = y / z;\n'
+           's = "a } b";\n')
+    out = _strip_comments(src)
+    assert len(out) == len(src)
+    assert "// the" not in out and "block }" not in out  # comments blanked
+    assert "a } b" in out           # string contents untouched
+    assert "y / z" in out           # division is not a comment
+    assert out.count("{") == 0      # the regex quantifier braces blanked
+
+
+def test_enumeration_survives_unbalanced_comment_braces(tmp_path):
+    """A `{` in a comment must not swallow following tests' spans."""
+    (tmp_path / "t.spec.ts").write_text(
+        'test("first", () => {\n'
+        '  // the { unbalanced comment\n'
+        '  expect(1).toBe(1);\n'
+        '});\n'
+        'test("second", () => {\n'
+        '  expect(/\\{2\\}/.test("x")).toBe(false);\n'
+        '});\n'
+        'test("third", () => expect(3).toBe(3));\n', encoding="utf-8")
+    d = JsTsDetector(tmp_path)
+    nodes = d.enumerate_tests(tmp_path)
+    assert [n.id for n in nodes] == ["t.spec.ts::first",
+                                     "t.spec.ts::second",
+                                     "t.spec.ts::third"]
+    first, second, third = nodes
+    # "first"'s body stops at its own close, not at a later test's.
+    assert second.lineno > first.end_lineno
+    assert third.body_line_count >= 1
+
+
+def test_load_coverage_accepts_garbage(tmp_path):
+    d = JsTsDetector(tmp_path)
+    bad = tmp_path / "nope.json"
+    cov, ok, note = d.load_coverage(bad)
+    assert ok is False and cov == {}
+    assert "jsts_coverage_json" in note or "contexts" in note
+
+
+def test_load_coverage_nodeid_format(tmp_path):
+    """The document's contract: test node ids -> {'s': {'file:line': hits}}."""
+    import json
+    doc = {"results": {
+        "tests/a.test.js::c::alpha": {"s": {"src/calc.js:1": 1}},
+    }}
+    p = tmp_path / "cov.json"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    d = JsTsDetector(tmp_path)
+    cov, ok, note = d.load_coverage(p)
+    assert ok and "src/calc.js:1" in cov["tests/a.test.js::c::alpha"].lines
+
+
+def test_malformed_coverage_entries_never_crash_tiering(tmp_path):
+    """User-supplied coverage data must degrade, not raise (§0)."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    from src import tiering
+    from src.models import CoverageSet, SymbolTable, TestNode
+
+    node = TestNode(id="t::x", file="t", name="x", coverage_key="t::x")
+    bad = CoverageSet(test_id="t::x", lines={"", "1", "no:line",
+                                             "a.js:notanumber"})
+    tiers, pub = tiering.assign_tiers([node], SymbolTable(), {"t::x": bad}, {})
+    assert tiers["t::x"] == "extended" and pub["t::x"] == []
+    cov = tiering.symbol_coverage([node], SymbolTable(), {"t::x": bad})
+    assert cov == {}

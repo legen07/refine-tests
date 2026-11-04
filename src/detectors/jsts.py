@@ -33,8 +33,16 @@ from ..models import (
 )
 
 TEST_FILE_RE = re.compile(r"\.(?:test|spec)\.(?:js|ts|jsx|tsx)$")
-IT_RE = re.compile(r"\b(?:it|test)\s*(?:\.\w+)?\s*\(\s*(['\"`])(.*?)\1\s*,")
-DESCRIBE_RE = re.compile(r"\bdescribe\s*\(\s*(['\"`])(.*?)\1\s*,")
+# `test.each([...])("title", fn)` / `describe.each(table)("t", fn)` carry a
+# parenthesized table between the dotted modifier and the title — allow one
+# paren-nested argument list. `test.skip(...)` stays matched by the bare
+# modifier branch.
+IT_RE = re.compile(
+    r"\b(?:it|test)\s*(?:\.\w+(?:\([^()]*\))?)?\s*\(\s*"
+    r"(['\"`])(.*?)\1\s*,")
+DESCRIBE_RE = re.compile(
+    r"\bdescribe\s*(?:\.\w+(?:\([^()]*\))?)?\s*\(\s*"
+    r"(['\"`])(.*?)\1\s*,")
 EXPECT_RE = re.compile(
     r"expect\s*\(\s*([^)]*?)\s*\)\s*(\.\w+(?:\([^)]*\))?)*")
 EXPORT_RE = re.compile(
@@ -64,17 +72,28 @@ def _matcher_skeleton(chain: str) -> str:
 SKIP_DIRS = {"node_modules", ".git", "dist", "build", "coverage", ".venv"}
 
 
-def _find_blocks(src: str, name_re) -> list[tuple[str, int, int]]:
-    """Locate `name("title", fn)` blocks with brace matching."""
-    out: list[tuple[str, int, int]] = []
+def _find_blocks(src: str, name_re
+                 ) -> list[tuple[str, int, int, int]]:
+    """Locate `name("title", fn)` blocks: the callback is either a brace
+    body or a single expression.
+
+    Modern suites write `it("t", () => { ... })`, `it("t", (a) =>
+    expect(a).toBe(1))` (no block at all), or `it("t", function () { ... })`.
+    Returns ``(title, header_start, body_start, body_end)``: the header
+    start anchors the line number on the `it(...)` declaration regardless
+    of body form; the body span covers the content between the braces for
+    block bodies, or the callback expression up to the caller's closing
+    paren for `it("t", () => expect(...))` shorthand bodies.
+    """
+    out: list[tuple[str, int, int, int]] = []
     for m in name_re.finditer(src):
-        # Walk forward to the opening brace of the callback, skipping the
-        # callback's own parameter parens — modern suites write
-        # `it("title", (a, b) => { ... })` or `describe("t", function () {`,
-        # so a `)` legitimately precedes the body brace. A close paren at
-        # depth 0 (the caller closed first) means shorthand or malformed.
+        # Walk forward to the callback, skipping its own parameter parens
+        # — a `)` legitimately precedes the body. A close paren at depth 0
+        # (the caller closed first) means shorthand or malformed.
         i = m.end()
         depth = 0
+        arrow: int | None = None
+        brace: int | None = None
         while i < len(src):
             ch = src[i]
             if ch == "(":
@@ -84,15 +103,47 @@ def _find_blocks(src: str, name_re) -> list[tuple[str, int, int]]:
                     break          # shorthand or malformed; skip
                 depth -= 1
             elif ch == "{" and depth == 0:
+                brace = i
+                break
+            elif ch == "=" and src[i:i + 2] == "=>" and depth == 0:
+                arrow = i
                 break
             elif ch in "\"'`":
                 i = _skip_string(src, i)
                 continue
             i += 1
-        if i >= len(src) or src[i] != "{":
+        if brace is None and arrow is not None:
+            # `() => {` is still a block; only `() => <expr>` (no brace
+            # after the arrow) is the expression form.
+            j = arrow + 2
+            while j < len(src) and src[j] in " \t":
+                j += 1
+            if j < len(src) and src[j] == "{":
+                brace = j
+            else:
+                # Expression body: the body ends at the caller's closing
+                # paren (depth 0 again).
+                k = arrow + 2
+                d = 0
+                while k < len(src):
+                    ch = src[k]
+                    if ch == "(":
+                        d += 1
+                    elif ch == ")":
+                        if d == 0:
+                            break
+                        d -= 1
+                    elif ch in "\"'`":
+                        k = _skip_string(src, k)
+                        continue
+                    k += 1
+                out.append((m.group(2), m.start(), arrow + 2, k))
+                continue
+        if brace is None:
             continue
         depth = 0
-        start = i
+        start = brace + 1           # content start (after `{`)
+        i = brace
         while i < len(src):
             ch = src[i]
             if ch == "{":
@@ -100,13 +151,86 @@ def _find_blocks(src: str, name_re) -> list[tuple[str, int, int]]:
             elif ch == "}":
                 depth -= 1
                 if depth == 0:
-                    out.append((m.group(2), start, i))
+                    out.append((m.group(2), m.start(), start, i))
                     break
             elif ch in "\"'`":
                 i = _skip_string(src, i)
                 continue
             i += 1
     return out
+
+
+# A `/` starts a regex or a comment only in expression position: after one of
+# these (or at start of input). After an identifier, `)`, `]`, or a literal
+# it is division or a regex closer — plain source, not a comment start.
+_REGEX_STARTS_AFTER = "(,=[{!&|?:;<>+-*%~^"
+
+
+def _strip_comments(src: str) -> str:
+    """Blank comments and regex-literal contents, preserving length.
+
+    The brace/paren walkers count `{}` parens naively; a `{` inside a
+    comment or inside a regex quantifier (`a{1,3}`) would inflate the depth
+    and swallow the rest of the file's tests. This pre-pass blanks those
+    regions with spaces so every index — and therefore every line number —
+    stays valid for the callers that slice the result.
+    """
+    out = list(src)
+    prev_sig = ""
+    i, n = 0, len(src)
+    while i < n:
+        ch = src[i]
+        if ch in "\"'`":
+            i = _skip_string(src, i)
+            prev_sig = "S"
+            continue
+        if ch == "/":
+            if i + 1 < n and src[i + 1] in "/*" and \
+                    (prev_sig == "" or prev_sig in _REGEX_STARTS_AFTER or
+                     prev_sig == ";"):
+                if src[i + 1] == "/":
+                    j = i
+                    while j < n and src[j] != "\n":
+                        out[j] = " "
+                        j += 1
+                    i = j
+                else:
+                    j = i
+                    while j < n and not (src[j] == "*" and j + 1 < n
+                                         and src[j + 1] == "/"):
+                        out[j] = " "
+                        j += 1
+                    if j < n:
+                        out[j] = out[j + 1] = " "
+                        j += 2
+                    i = j
+                prev_sig = ";"
+                continue
+            if prev_sig == "" or prev_sig in _REGEX_STARTS_AFTER or \
+                    prev_sig == ";":
+                # Regex literal in expression position: blank its content
+                # (quantifier braces must not reach the brace walker).
+                out[i] = " "
+                j = i + 1
+                while j < n and src[j] != "/":
+                    if src[j] == "\\" and j + 1 < n:
+                        out[j] = out[j + 1] = " "
+                        j += 2
+                        continue
+                    out[j] = " "
+                    j += 1
+                if j < n:
+                    out[j] = " "      # closing delimiter
+                    j += 1
+                    while j < n and src[j].isalpha():
+                        out[j] = " "  # flags
+                        j += 1
+                i = j
+                prev_sig = "/"
+                continue
+        prev_sig = ch if not ch.isspace() else prev_sig
+        i += 1
+    return "".join(out)
 
 
 def _skip_string(src: str, i: int) -> int:
@@ -253,9 +377,32 @@ class JsTsDetector:
         self.root = Path(root)
         self.cfg = cfg or {}
         self._coverage: dict[str, CoverageSet] = {}
+        # The engine drives the load (it owns the report's coverage note),
+        # but honor the config here too so the detector works standalone.
         cov_path = (self.cfg.get("coverage", {}) or {}).get("jsts_coverage_json")
         if cov_path:
-            self._coverage = self._load_per_test_json(Path(cov_path))
+            self.load_coverage(Path(cov_path))
+
+    def load_coverage(self, path: Path) -> tuple[dict[str, CoverageSet],
+                                                bool, str]:
+        """Load per-test coverage from a pre-built c8/coverage JSON (A3).
+
+        Returns ``(coverage, ok, note)``: a bad or empty document degrades
+        to the structural-only path with a note for the report header
+        instead of raising.
+        """
+        try:
+            cov = self._load_per_test_json(Path(path))
+        except (OSError, json.JSONDecodeError) as exc:
+            self._coverage = {}
+            return {}, False, f"jsts_coverage_json unreadable ({exc})"
+        if not cov:
+            self._coverage = {}
+            return {}, False, \
+                "no per-test contexts found in jsts_coverage_json"
+        self._coverage = cov
+        return cov, True, \
+            "per-test coverage from the supplied jsts_coverage_json"
 
     # -- protocol ------------------------------------------------------------
 
@@ -303,7 +450,11 @@ class JsTsDetector:
                 except OSError:
                     continue
                 rel = p.relative_to(root).as_posix()
-                nodes.extend(self._tests_from_source(src, rel, root))
+                # Scan the comment/regex-stripped text: every index and
+                # line number is preserved, but `{`s inside comments or
+                # regex quantifiers can no longer unbalance the walkers.
+                nodes.extend(self._tests_from_source(
+                    _strip_comments(src), rel, root))
         return sorted(nodes, key=lambda n: (n.file, n.lineno, n.id))
 
     def _tests_from_source(self, src: str, rel: str, root: Path) -> list[TestNode]:
@@ -311,13 +462,14 @@ class JsTsDetector:
         describes = _find_blocks(src, DESCRIBE_RE)
         its = _find_blocks(src, IT_RE)
         # Expand describe titles into nodeids.
-        for title, start, end in its:
-            enclosing = [dt for dt, ds, de in describes
-                         if ds < start and de > end]
-            prefix = "/".join(enclosing) if enclosing else ""
+        for title, header, start, end in its:
+            enclosing = [dt for dt, hs, bs, be in describes
+                         if bs < start and be > end]
+            prefix = "/".join(enclosing[::1]) if enclosing else ""
             nodeid = f"{rel}::{prefix}::{title}" if prefix else f"{rel}::{title}"
-            lineno = src.count("\n", 0, start) + 1
-            body = src[start + 1:end]
+            lineno = src.count("\n", 0, header) + 1
+            body = src[start:end]
+            body_line_count = src.count("\n", start, end) + 1
             mocks = {m.group(1): "vi.fn" for m in MOCK_RE.finditer(body)}
             calls = _exercised_calls(body, mocks)
             mock_only = bool(CALLOUT_RE.search(body)) and mocks
@@ -343,7 +495,7 @@ class JsTsDetector:
             out.append(TestNode(
                 id=nodeid, file=rel, name=title, language="javascript",
                 lineno=lineno, end_lineno=src.count("\n", 0, end) + 1,
-                body_line_count=end - start,
+                body_line_count=body_line_count,
                 references=set(re.findall(r"\b(\w[\w.]*)\b", body)),
                 assertions=assertions, call_sites=calls,
                 mock_binding_names=mocks,
