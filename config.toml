@@ -14,7 +14,10 @@ languages = ["python", "javascript", "typescript"]
 # If the mechanism is unavailable, coverage-dependent detectors (redundant,
 # low-value, sole-coverage veto) refuse findings above LOW confidence and the
 # report header records the degradation.
-python_runner   = "auto"            # auto | <path to python> ; "auto" = .venv then sys.executable then PATH
+python_runner   = "auto"            # auto | <path to python> ; an explicit interpreter
+#                                   # wins (use the audited project's own venv when its
+#                                   # tests need its dependencies); "auto" = plugin .venv,
+#                                   # then the running interpreter, then PATH
 cov_branch      = true
 timeout_seconds = 600
 

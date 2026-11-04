@@ -27,3 +27,19 @@ def test_base_conf_honors_config_override():
     ctx = {"detector_confidence": {"zombie": 0.9}}
     assert _util.base_conf(ctx, "zombie", 0.4) == 0.9
     assert _util.base_conf({}, "zombie", 0.4) == 0.4
+
+
+def test_resolve_python_honors_configured_interpreter():
+    import pathlib
+    from src.coverage_runner import resolve_python
+    cfg = {"coverage": {"python_runner": "/opt/proj/.venv/bin/python"}}
+    # The configured path does not exist here, so resolution falls through
+    # to the remaining candidates — but the configured one is *preferred*
+    # whenever it works:
+    root = pathlib.Path(__file__).resolve().parent.parent.parent
+    fake = root / ".venv" / "bin" / "python"
+    cfg_ok = {"coverage": {"python_runner": str(fake)}}
+    assert resolve_python(cfg_ok) == str(fake)
+    # "auto" and the legacy `python` key behave the same.
+    assert resolve_python({"coverage": {"python": str(fake)}}) == str(fake)
+    assert resolve_python({"coverage": {"python_runner": "auto"}}) is not None

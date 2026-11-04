@@ -36,7 +36,15 @@ def resolve_python(cfg: dict) -> str | None:
     exists.
     """
     here = Path(__file__).resolve().parent.parent
-    candidates = [here / ".venv" / "bin" / "python"]
+    # An explicit `[coverage] python_runner` (or legacy `python`) in
+    # config.toml / .refine-tests.toml wins — e.g. the audited project's own
+    # venv, so its test dependencies are importable during collection.
+    section = (cfg.get("coverage", {}) or {})
+    configured = section.get("python_runner") or section.get("python")
+    candidates = []
+    if configured and configured != "auto":
+        candidates.append(str(configured))
+    candidates.append(here / ".venv" / "bin" / "python")
     if sys.executable:
         candidates.append(sys.executable)
     candidates += ["python3", "python"]
