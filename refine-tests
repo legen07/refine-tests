@@ -1,11 +1,14 @@
 #!/usr/bin/env sh
 # refine-tests — zero-install launcher (§17 usage examples).
 # Runs the plugin's CLI from a checkout without `pip install -e .`.
-# Preference order: a local .venv (created with `python3 -m venv .venv &&
-# .venv/bin/pip install pytest pytest-cov`), then the interpreter on PATH.
+# Invocable from any directory: PYTHONPATH anchors the module so relative
+# targets resolve against *your* cwd, as every CLI should.
+# Preference order: the checkout's .venv (see `refine-tests bootstrap`),
+# then the interpreter on PATH.
 set -e
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-if [ -x "$ROOT/.venv/bin/python" ]; then
-  exec "$ROOT/.venv/bin/python" -m src.cli "$@"
+PY="$ROOT/.venv/bin/python"
+if [ ! -x "$PY" ]; then
+  PY=python3
 fi
-exec python3 -m src.cli "$@"
+PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" exec "$PY" -m src.cli "$@"
