@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,23 @@ EXPORT_RE = re.compile(
 MOCK_RE = re.compile(
     r"\b(?:const|let)\s+(\w+)\s*=\s*(?:vi|jest)\.(?:fn|spyOn|mock)\b")
 CALLOUT_RE = re.compile(r"(?:^|\s)(?:vi|jest)\.(?:fn|mock|spyOn)\(")
+# A matcher argument that is a plain JS scalar literal. Aggregates (arrays,
+# objects) collapse to "agg": the point of the skeleton is to tell
+# `.toBe(3)` from `.toBe(2)` (the claims differ), not to diff data shapes.
+SCALAR_ARG_RE = re.compile(
+    r"^(?:-?\d+(?:\.\d+)?|(?:'[^']*'|\"[^\"]*\"|`[^`]*`)"
+    r"|true|false|null|undefined)$")
+
+
+def _matcher_skeleton(chain: str) -> str:
+    """`.toBe(3).strictEqual(2)` -> `toBe:3/strictEqual:2` (literals kept)."""
+    parts: list[str] = []
+    for mm in re.finditer(r"\.(\w+)(?:\((.*?)\))?", chain or ""):
+        name = mm.group(1)
+        args = (mm.group(2) or "").strip()
+        lit = args if SCALAR_ARG_RE.match(args) else ("agg" if args else "-")
+        parts.append(f"{name}:{lit}")
+    return "/".join(parts)
 
 SKIP_DIRS = {"node_modules", ".git", "dist", "build", "coverage", ".venv"}
 
@@ -50,11 +68,26 @@ def _find_blocks(src: str, name_re) -> list[tuple[str, int, int]]:
     """Locate `name("title", fn)` blocks with brace matching."""
     out: list[tuple[str, int, int]] = []
     for m in name_re.finditer(src):
-        # Walk forward to the opening brace of the callback.
+        # Walk forward to the opening brace of the callback, skipping the
+        # callback's own parameter parens — modern suites write
+        # `it("title", (a, b) => { ... })` or `describe("t", function () {`,
+        # so a `)` legitimately precedes the body brace. A close paren at
+        # depth 0 (the caller closed first) means shorthand or malformed.
         i = m.end()
-        while i < len(src) and src[i] != "{":
-            if src[i] == ")":
-                break  # shorthand or malformed; skip
+        depth = 0
+        while i < len(src):
+            ch = src[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                if depth == 0:
+                    break          # shorthand or malformed; skip
+                depth -= 1
+            elif ch == "{" and depth == 0:
+                break
+            elif ch in "\"'`":
+                i = _skip_string(src, i)
+                continue
             i += 1
         if i >= len(src) or src[i] != "{":
             continue
@@ -77,13 +110,125 @@ def _find_blocks(src: str, name_re) -> list[tuple[str, int, int]]:
 
 
 def _skip_string(src: str, i: int) -> int:
+    """Index just PAST the string literal starting at ``i``.
+
+    Returning the closing quote's index would make the callers' ``continue``
+    re-enter the skip and swallow to the next quote (or off the end of the
+    file) — the first test body containing a string literal would never
+    close its block.
+    """
     quote = src[i]
     i += 1
     while i < len(src) and src[i] != quote:
         if src[i] == "\\":
             i += 1
         i += 1
-    return i
+    return i + 1
+
+
+def _expect_regions(src: str) -> list[tuple[str, str, int, int]]:
+    """Every `expect(<target>)<chain>` in a test body.
+
+    `[^)]` regexes cannot handle nested calls (`expect(add(1, 2)).toBe(3)`),
+    so this walks balanced parens with string awareness. Returns the target
+    expression, the matcher chain, and the chain's `(start, end)` span —
+    the span lets the call-site extractor treat matchers (`.toBe(3)`) as
+    assertions rather than exercised calls.
+    """
+    out: list[tuple[str, str, int, int]] = []
+    for m in re.finditer(r"\bexpect\s*\(", src):
+        i, depth, in_str = m.end(), 1, None
+        start = i
+        while i < len(src) and depth:
+            ch = src[i]
+            if in_str:
+                if ch == in_str:
+                    in_str = None
+                elif ch == "\\":
+                    i += 1
+            elif ch in "\"'`":
+                in_str = ch
+                i += 1
+                continue
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        if depth != 0:
+            continue                     # unbalanced; skip this candidate
+        target = src[start:i]
+        i += 1                           # past the closing paren
+        j = i
+        in_str = None
+        while j < len(src):
+            ch = src[j]
+            if in_str:
+                if ch == in_str:
+                    in_str = None
+                elif ch == "\\":
+                    j += 1
+            elif ch in "\"'`":
+                in_str = ch
+            elif ch in ";\n":
+                break
+            j += 1
+        out.append((target.strip(), src[i:j].strip(), i, j))
+    return out
+
+
+# Harness macros and mock-factory setups are never exercised calls (A11).
+HARNESS_MACROS = {"describe", "it", "test", "expect", "xdescribe", "xit",
+                  "beforeEach", "beforeAll", "afterEach", "afterAll",
+                  "before", "after", "expect"}
+MOCK_SETUP_CALL = re.compile(r"^(?:vi|jest)\.(?:fn|mock|spyOn)$")
+
+
+def _exercised_calls(body: str, mocks: dict[str, str]
+                     ) -> list[CallSiteInfo]:
+    """Behavioral call sites: what the test drives, with mock resolution.
+
+    Excluded: `expect(...)` targets' matcher chains (they are assertions),
+    the harness macros themselves, and `vi.fn(...)` / `jest.fn(...)`
+    constructor calls — a mock's construction verifies nothing (A11, the
+    same rule the Python detector applies).
+    """
+    regions = _expect_regions(body)
+    out: list[CallSiteInfo] = []
+    for m in re.finditer(r"\b(\w[\w.]*)\s*\(", body):
+        callee = m.group(1).strip()
+        base = callee.split(".")[0]
+        if any(cstart <= m.start() < cend
+               for _, _, cstart, cend in regions):
+            continue                       # inside a matcher chain
+        if base in HARNESS_MACROS:
+            continue
+        if MOCK_SETUP_CALL.match(callee):
+            continue
+        out.append(CallSiteInfo(
+            repr=m.group(0)[:120], callee=callee, base_name=base,
+            lineno=body[:m.start()].count("\n") + 1,
+            on_mock=base in mocks))
+    return out
+
+
+def _module_key(spec: str, rel: str) -> str:
+    """Normalize an import specifier to the symbol-table key form.
+
+    The symbol table keys production modules root-relative without a suffix
+    (`src/calc`); a relative specifier is resolved against the importing
+    test file's directory. Package specifiers ("vitest", "lodash") are kept
+    as written: they are never production modules, and the zombie detector
+    skips modules absent from the table.
+    """
+    if spec.startswith(".") and rel:
+        base = posixpath.dirname(rel)
+        spec = posixpath.normpath(posixpath.join(base, spec))
+    if spec.endswith((".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")):
+        spec = spec.rsplit(".", 1)[0]
+    return spec
 
 
 def _norm_tokens(text: str) -> str:
@@ -173,26 +318,22 @@ class JsTsDetector:
             nodeid = f"{rel}::{prefix}::{title}" if prefix else f"{rel}::{title}"
             lineno = src.count("\n", 0, start) + 1
             body = src[start + 1:end]
-            calls = [
-                CallSiteInfo(repr=m.group(0)[:120], callee=m.group(1).strip(),
-                             base_name=m.group(1).strip().split(".")[0],
-                             lineno=src.count("\n", 0, m.start()) + 1)
-                for m in re.finditer(r"\b(\w[\w.]*)\s*\(", body)
-            ]
             mocks = {m.group(1): "vi.fn" for m in MOCK_RE.finditer(body)}
+            calls = _exercised_calls(body, mocks)
             mock_only = bool(CALLOUT_RE.search(body)) and mocks
             assertions: list[AssertionInfo] = []
-            for em in EXPECT_RE.finditer(body):
-                target = em.group(1).strip()
-                matchers = [t for t in re.findall(r"\.(\w+)", em.group(2) or "")]
+            for target, chain, _, _ in _expect_regions(body):
+                matchers = re.findall(r"\.(\w+)(?=\s*\()", chain)
                 a = AssertionInfo()
                 a.kind = "compare"
                 a.comparator = " ".join(matchers)
-                a.detail = f"expect({target}).{em.group(2) or ''}"
-                if any(m in {"toBeDefined", "toBeTruthy", "toBeNotNull",
-                             "toBeTruthy"} for m in matchers):
+                a.matcher_chain = chain
+                a.detail = f"expect({target}){chain}"
+                if any(m in {"toBeDefined", "toBeTruthy", "toBeNotNull"}
+                       for m in matchers):
                     a.is_existence = True
-                if "toMatchSnapshot" in matchers or "toMatchInlineSnapshot" in matchers:
+                if "toMatchSnapshot" in matchers or \
+                        "toMatchInlineSnapshot" in matchers:
                     a.snapshot_like = True
                 if "toHaveBeenCalledWith" in matchers:
                     a.pins_call_order = True
@@ -209,24 +350,29 @@ class JsTsDetector:
                 mock_configs=[],
                 structure_digest=_norm_tokens(body),
                 assertion_skeleton=tuple(
-                    "EXPECT:" + a.comparator for a in assertions),
+                    # Matcher text with literals kept, mirroring the Python
+                    # detector's `== 4` vs `== 5` discrimination.
+                    "EXPECT:" + _matcher_skeleton(a.matcher_chain)
+                    for a in assertions),
                 coverage_key=nodeid,
-                imports=self._imports(src),
+                imports=self._imports(src, rel),
                 markers=["mock-only"] if mock_only else [],
             ))
         return out
 
-    def _imports(self, src: str) -> list[ImportInfo]:
+    def _imports(self, src: str, rel: str = "") -> list[ImportInfo]:
         out: list[ImportInfo] = []
         for m in re.finditer(
-                r"^\s*import\s+(?:\{([^}]*)\}|\w+)\s+from\s+['\"]([^'\"]+)['\"]",
+                r"^\s*import\s+(?:\{([^}]*)\}|(\w+))\s+from\s+"
+                r"['\"]([^'\"]+)['\"]",
                 src, re.M):
-            named, module = m.group(1), m.group(2)
+            named, bare, module = m.group(1), m.group(2), m.group(3)
+            key = _module_key(module, rel)
             if named:
                 for sym in re.findall(r"\b(\w+)\b", named):
-                    out.append(ImportInfo(module=module, symbol=sym, local=sym))
+                    out.append(ImportInfo(module=key, symbol=sym, local=sym))
             else:
-                out.append(ImportInfo(module=module, symbol="", local=m.group(0)))
+                out.append(ImportInfo(module=key, symbol="", local=bare or ""))
         return out
 
     # -- symbol table -----------------------------------------------------------

@@ -300,6 +300,10 @@ def _print_cleanup_summary(result, md, js) -> None:
     print(f"  quarantined    : {len(applied.get('removed', []))} "
           f"({', '.join(applied.get('removed', [])) or '—'})")
     print(f"  proposals      : {len(applied.get('proposals', []))}")
+    skipped = applied.get("skipped") or []
+    if skipped:
+        print(f"  removals skipped: {len(skipped)} (quarantine is Python-only "
+              f"for now; see the report for each test and reason)")
     print(f"  report (md)    : {md}")
     print(f"  report (json)  : {js}")
 

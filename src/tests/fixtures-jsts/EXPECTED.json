@@ -1,0 +1,87 @@
+{
+  "_meta": {
+    "languages": [
+      "javascript"
+    ],
+    "nodeid_form": "<file>::<describe titles joined by />::<it title>",
+    "suite": "JS/TS structural fixtures (A3: no per-test coverage; coverage-dependent caps make redundancy LOW-only)"
+  },
+  "tests/calc.test.js::calc::add is defined": {
+    "action": "strengthen",
+    "findings": [
+      {
+        "category": "existence-only",
+        "detector": "existence_only"
+      }
+    ],
+    "tier": "extended",
+    "vetoed": false
+  },
+  "tests/calc.test.js::calc::adds numbers alpha": {
+    "action": "keep",
+    "findings": [
+      {
+        "category": "redundant",
+        "detector": "redundant"
+      }
+    ],
+    "tier": "extended",
+    "vetoed": false
+  },
+  "tests/calc.test.js::calc::adds numbers beta": {
+    "action": "keep",
+    "findings": [
+      {
+        "category": "redundant",
+        "detector": "redundant"
+      }
+    ],
+    "tier": "extended",
+    "vetoed": false
+  },
+  "tests/calc.test.js::calc::divides two numbers": {
+    "action": "keep",
+    "findings": [],
+    "tier": "extended",
+    "vetoed": false
+  },
+  "tests/calc.test.js::calc::legacy total still used": {
+    "action": "keep",
+    "findings": [
+      {
+        "category": "zombie",
+        "detector": "zombie"
+      }
+    ],
+    "tier": "extended",
+    "vetoed": false
+  },
+  "tests/calc.test.js::calc::sums to snapshot": {
+    "action": "keep",
+    "findings": [
+      {
+        "category": "brittle",
+        "detector": "brittle"
+      }
+    ],
+    "tier": "extended",
+    "vetoed": false
+  },
+  "tests/mocked.test.js::mocked::divide by zero throws": {
+    "action": "keep",
+    "findings": [],
+    "tier": "extended",
+    "vetoed": false
+  },
+  "tests/mocked.test.js::mocked::mock only": {
+    "action": "strengthen",
+    "findings": [
+      {
+        "category": "mock-heavy",
+        "detector": "mock_heavy"
+      }
+    ],
+    "tier": "extended",
+    "vetoed": false
+  }
+}

@@ -86,3 +86,32 @@ def test_quarantine_roundtrip_roundtrip(tmp_path: Path):
     assert "def test_a():\n    assert 1" in restored_src
     assert (target / "quarantine" / ".restored" / record.id).exists()
     assert record.id
+
+
+def test_apply_cleanup_skips_non_python_removals(tmp_path, monkeypatch):
+    """A JS/TS removal must be refused, not rewritten by the Python AST."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    from src import engine
+    from src.models import Decision, Finding, Tier
+
+    target = tmp_path / "prj"
+    target.mkdir()
+    (target / "tests").mkdir()
+    (target / "tests" / "a.test.js").write_text(
+        'it("dup", () => { expect(1).toBe(1); });\n', encoding="utf-8")
+
+    node = Decision(
+        test_id="tests/a.test.js::dup", file="tests/a.test.js",
+        action="remove", confidence=0.9, tier="extended",
+        findings=[Finding(category="redundant", detector="redundant",
+                          confidence=0.9, evidence=["dup"])])
+    result = engine.AuditResult(run={}, decisions=[node], nodes={})
+    args = engine.AuditArgs(mode="apply", yes=True, offline=True)
+    out = engine.apply_cleanup(result, target, {"features": {}}, args)
+
+    skipped = out.run["applied"]["skipped"]
+    assert len(skipped) == 1 and skipped[0]["test_id"] == "tests/a.test.js::dup"
+    # The JS file is untouched — no quarantine stub, no quarantine dir.
+    assert "quarantine" not in [p.name for p in target.iterdir()]
+    assert 'it("dup"' in (target / "tests" / "a.test.js").read_text()

@@ -82,6 +82,9 @@ class AssertionInfo:
     reads_privates: bool = False
     # Names referenced by the assertion, resolved against the symbol table
     referenced: list[str] = field(default_factory=list)
+    # The matcher chain after the assertion target (JS/TS only):
+    # `.toBe(3).strictEqual(...)`, literals kept (see _matcher_skeleton).
+    matcher_chain: str = ""
     # Free-form evidence string, used verbatim in reports
     detail: str = ""
 

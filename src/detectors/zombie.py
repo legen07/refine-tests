@@ -14,9 +14,15 @@ from .base import CategoryDetector
 
 
 def _missing_from_imports(node: TestNode, table: SymbolTable) -> list[str]:
+    # Module-level imports are shared by every test in the file (all of
+    # JS/TS, most of Python): a dead symbol that the test body never touches
+    # is file-level plumbing, not this test's decay. Only report an import
+    # when the test's own body actually uses the dead name — the reference
+    # scan below covers the same case, this keeps the evidence precise.
+    used = {r.split(".")[0] for r in node.references}
     missing: list[str] = []
     for module, symbol, exists in _util.test_module_aliases(node, table):
-        if not exists:
+        if not exists and symbol in used:
             missing.append(f"{module}.{symbol}")
     return missing
 

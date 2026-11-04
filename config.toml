@@ -18,6 +18,10 @@ python_runner   = "auto"            # auto | <path to python> ; an explicit inte
 #                                   # wins (use the audited project's own venv when its
 #                                   # tests need its dependencies); "auto" = plugin .venv,
 #                                   # then the running interpreter, then PATH
+jsts_coverage_json = ""             # path to a pre-built c8/coverage JSON with
+#                                   # per-test contexts (JS/TS). Empty = structural
+#                                   # analysis only: coverage-dependent detectors
+#                                   # stay LOW-capped and no JS/TS removal gates
 cov_branch      = true
 timeout_seconds = 600
 

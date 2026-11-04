@@ -72,6 +72,23 @@ Feature flags: `--allow-replace-proposals` (P3, §12) and `--mutation` (P4)
 are off by default; both are also configurable in `config.toml` /
 `.refine-tests.toml`.
 
+## Language support
+
+- **Python** — full fidelity: per-test coverage, CI history, mutation probe,
+  quarantine/restore. The `--cleanup --yes` path rewrites tests with
+  line-number-preserving skip stubs.
+- **JavaScript / TypeScript** — structural analysis: `describe`/`it`/`test`
+  enumeration, export symbol tables, expect-matcher skeletons, mock
+  resolutions, zombie imports. Works on any `.test.js|.spec.ts...` tree.
+  Per-test coverage is used only when you point
+  `coverage.jsts_coverage_json` (config or `.refine-tests.toml`) at a
+  pre-built c8/coverage JSON; without it, coverage-dependent detectors stay
+  LOW-capped and the audit never gates a JS/TS removal — quarantine is
+  Python-only, so a JS `remove` is reported, not rewritten (documented in
+  `ASSUMPTIONS.md` A3).
+- Other languages — not supported; the audit reports them as out of scope
+  rather than guessing.
+
 ## Reports
 
 - `refine-tests-report.md` — run configuration, before/after tables,
@@ -87,8 +104,8 @@ audits are byte-identical.
 
 ```bash
 python3 src/tests/fixtures/tools/make_ci_history.py   # regenerate CI history
-python3 src/tests/run_acceptance.py                   # §14.1–8, 9/9 checks
-.venv/bin/python -m pytest src/tests                  # unit tests
+python3 src/tests/run_acceptance.py                   # §14.1–8 + JS/TS + §12: 10/10
+.venv/bin/python -m pytest src/tests                  # unit tests (36)
 ```
 
 The fixtures are a deliberately decayed demo project (45 tests) with a

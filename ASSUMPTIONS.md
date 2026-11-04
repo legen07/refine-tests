@@ -56,13 +56,20 @@ format is project-specific.
 
 **Assumption:** the JS/TS detector (`src/detectors/jsts.py`) does full
 structural analysis (describe/it/test scanning, export symbol table, expect
-matcher shapes, vi.fn/jest.fn mocks) but consumes per-test coverage only when
-the user points `coverage.jsts_coverage_json` at a pre-built c8/coverage
-document, and the mutation probe reports `over_budget` (Stryker is out of
-scope for v1, §15 P4).
+matcher shapes with literal-preserving skeletons, vi.fn/jest.fn mock
+resolution, import-specifier→symbol-table normalization) but consumes
+per-test coverage only when the user points `coverage.jsts_coverage_json` at
+a pre-built c8/coverage document, and the mutation probe reports
+`over_budget` (Stryker is out of scope for v1, §15 P4). The path is pinned by
+`src/tests/fixtures-jsts/` — a regression suite; it was once silently broken
+(arrow callbacks and string literals in test bodies both defeated the
+scanners, and the Python fixtures could not see it).
 
 **Conservative fallback:** with no JS/TS coverage document, every detector
-that needs coverage fingerprints refuses findings above LOW (§2 LOW cap).
+that needs coverage fingerprints refuses findings above LOW (§2 LOW cap),
+the audit never emits `remove` for a JS/TS test, and `apply_cleanup` refuses
+such removals rather than let a Python AST tool rewrite a JS file (the skip
+is recorded in the report and the CLI summary).
 
 ## A4 — "the typechecker already enforces it" is an AST-level approximation
 

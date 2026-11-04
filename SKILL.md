@@ -74,6 +74,13 @@ Scope defaults to **smoke + core** tiers (pass `--all-tiers` to include
 `extended`). `--offline` makes zero network calls (local `.ci-history/`
 becomes the CI provider).
 
+**Languages:** Python gets the full pipeline (coverage, CI history, mutation
+probe, quarantine). JS/TS gets structural analysis (A3): detectors that need
+coverage fingerprints stay LOW-capped unless `coverage.jsts_coverage_json`
+points at a pre-built c8 document, and removals are reported but never
+rewritten — quarantine is Python-only. A mixed-language audit handles both
+in one run.
+
 ## Detectors (§5) and their primary remediation
 
 | # | Detector            | Primary claim                                            | Action        |

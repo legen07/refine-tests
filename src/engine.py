@@ -516,8 +516,21 @@ def apply_cleanup(result: AuditResult, target: Path, cfg: dict,
         # (reconciliation of §8 with §14.4 documented in ASSUMPTIONS A7).
         approved = {d.test_id for d in removes}
 
+    skipped: list[dict[str, str]] = []
     for decision in sorted(removes, key=lambda d: d.test_id):
         if decision.test_id not in approved:
+            continue
+        # Quarantine mechanics (AST extraction, skip stub, restore) are
+        # Python-only today: a JS/TS removal is reported by the audit but
+        # must not be rewritten by a Python AST tool — refuse and surface
+        # (§0/A3) instead of corrupting the file.
+        if not decision.file.endswith(".py"):
+            skipped.append({
+                "test_id": decision.test_id,
+                "file": decision.file,
+                "reason": "quarantine not supported for JS/TS yet — remove "
+                          "manually (see the audit findings)",
+            })
             continue
         record = store.apply_removal(decision, target)
         decision.quarantine_id = record.id
@@ -548,6 +561,7 @@ def apply_cleanup(result: AuditResult, target: Path, cfg: dict,
     result.run["applied"] = {
         "removed": sorted(approved),
         "proposals": [p["id"] for p in proposals],
+        "skipped": skipped,
     }
     return result
 

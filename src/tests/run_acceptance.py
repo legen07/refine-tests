@@ -34,6 +34,8 @@ from pathlib import Path
 PLUGIN = Path(__file__).resolve().parent.parent.parent
 FIXTURES = PLUGIN / "src" / "tests" / "fixtures"
 EXPECTED_PATH = FIXTURES / "EXPECTED.json"
+JSTS_FIXTURES = PLUGIN / "src" / "tests" / "fixtures-jsts"
+JSTS_EXPECTED_PATH = JSTS_FIXTURES / "EXPECTED.json"
 CLI = [str(PLUGIN / "refine-tests")]
 PY = str(PLUGIN / ".venv" / "bin" / "python")
 
@@ -67,14 +69,14 @@ def run_cli(*args: str, cwd: Path | None = None, expect: int | None = None,
     return proc
 
 
-def fresh_copy() -> Path:
+def fresh_copy(source: Path = FIXTURES) -> Path:
     tmp = Path(tempfile.mkdtemp(prefix="rt-accept-"))
 
     def ignore(_src, names):
         return [n for n in names
                 if n in ARTIFACT_DIRS or n.endswith("__pycache__")]
 
-    shutil.copytree(FIXTURES, tmp / "fixtures", ignore=ignore)
+    shutil.copytree(source, tmp / "fixtures", ignore=ignore)
     return tmp / "fixtures"
 
 
@@ -436,6 +438,46 @@ def check_replace_gating() -> None:
             assert section.lower() in body.lower(), \
                 f"Replace proposal lacks the §12 section: {section}"
         print("  zombie+impl-detail → Replace (flagged); §12 proposal written")
+    finally:
+        shutil.rmtree(target.parent, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# JS/TS regression: the structural detector path over fixtures-jsts.
+# Not a §14 criterion — it exists because that path was silently broken
+# (arrow callbacks, string literals in bodies) and the Python fixtures
+# could never have caught it. EXPECTED.json pins the outcome, including
+# the LOW-cap on coverage-dependent detectors (A3).
+# ---------------------------------------------------------------------------
+
+@check("JS/TS structural audit matches fixtures-jsts/EXPECTED.json")
+def check_jsts_classification() -> None:
+    expected = json.loads(JSTS_EXPECTED_PATH.read_text(encoding="utf-8"))
+    meta = expected.pop("_meta", {})
+    target = fresh_copy(JSTS_FIXTURES)
+    try:
+        run_cli("--offline", "--all-tiers", str(target), expect=0)
+        report = read_report(target)
+        actual = {t["test_id"]: t for t in report["tests"]}
+        missing = set(expected) - set(actual)
+        assert not missing, f"JS tests missing from the report: {sorted(missing)}"
+        for test_id, want in sorted(expected.items()):
+            got = actual[test_id]
+            assert got["action"] == want["action"], \
+                f"{test_id}: action {got['action']!r} != {want['action']!r}"
+            got_findings = {f["category"]: f["detector"]
+                            for f in got["findings"]}
+            want_findings = {f["category"]: f["detector"]
+                             for f in want["findings"]}
+            assert got_findings == want_findings, \
+                f"{test_id}: findings {sorted(got_findings)} != " \
+                f"{sorted(want_findings)}"
+        # A3: no JS per-test coverage ⇒ removal gates must stay closed.
+        assert all(t["action"] != "remove" for t in report["tests"]), \
+            "JS/TS audit must not gate a removal without coverage data"
+        assert meta.get("languages") == ["javascript"]
+        print(f"  {len(expected)} JS tests classified per EXPECTED.json "
+              f"(nodeid form: {meta.get('nodeid_form', 'n/a')})")
     finally:
         shutil.rmtree(target.parent, ignore_errors=True)
 
